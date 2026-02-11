@@ -1,0 +1,1195 @@
+<div class="player-container">
+  <!-- Main Content Area -->
+  <div class="main-area">
+    <!-- Left Sidebar -->
+    <div class="left-sidebar" [style.width.px]="leftWidth()">
+      <!-- Logo & User -->
+      <div class="sidebar-header">
+        <h1 class="logo">Aganim</h1>
+        <button class="user-avatar-btn" (click)="showUserProfile.set(true)">
+          <img [src]="getFileUrl(user()?.avatar)" [alt]="user()?.username" class="avatar-img" />
+          @if (isUserLive()) {
+          <div class="live-badge-small">LIVE</div>
+          }
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="search-box">
+        <svg class="search-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+        <input type="text" placeholder="Search" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      </div>
+
+      <!-- Live Now Section -->
+      <div class="sidebar-section">
+        <div class="section-header">
+          <h2>Live Now</h2>
+          <span class="count">{{ liveUsers().length }} streaming</span>
+        </div>
+
+        <div class="live-users-list">
+          @for (liveUser of filteredLiveUsers(); track liveUser.id) {
+          <div class="live-user-item" [class.active]="isGhostMode() && selectedLiveUser()?.id === liveUser.id"
+            [class.is-friend]="!liveUser.isArtist" (click)="joinLiveStream(liveUser)">
+            <div class="avatar-container">
+              <img [src]="getFileUrl(liveUser.avatar)" [alt]="liveUser.name" />
+              <div class="live-indicator"></div>
+            </div>
+            <div class="user-info">
+              <span class="name">
+                {{ liveUser.name }}
+                @if (!liveUser.isArtist) {
+                <span class="friend-badge">Friend</span>
+                }
+              </span>
+              <span class="genre">{{ liveUser.genre }}</span>
+            </div>
+            <span class="listeners">{{ liveUser.listeners }}</span>
+          </div>
+          }
+          @empty {
+          <div class="empty-text">No live streams</div>
+          }
+        </div>
+      </div>
+
+      <!-- Friends Section -->
+      <div class="sidebar-section friends-section">
+        <div class="section-header">
+          <h2>Friends</h2>
+          <div class="header-actions">
+            @if (friendRequests().length > 0) {
+            <button class="requests-badge" (click)="showFriendRequests.set(true)">
+              {{ friendRequests().length }}
+            </button>
+            }
+            <button class="add-btn" (click)="showAccountSearch.set(true)">+</button>
+          </div>
+        </div>
+
+        <div class="friends-list">
+          @for (friend of filteredFriends(); track friend.id) {
+          <div class="friend-item" [class.active]="selectedFriend()?.id === friend.id"
+            (click)="viewFriendPlaylists(friend)" (contextmenu)="onFriendContextMenu($event, friend)">
+            <div class="avatar-container">
+              <img [src]="getFileUrl(friend.avatar)" [alt]="friend.username" />
+              @if (friend.isOnline) {
+              <div class="online-indicator"></div>
+              }
+            </div>
+            <div class="friend-info">
+              <span class="name">{{ friend.username }}</span>
+              <span class="status">{{ friend.isOnline ? (friend.status || 'Online') : friend.status }}</span>
+            </div>
+          </div>
+          }
+          @empty {
+          <div class="empty-text">No friends yet</div>
+          }
+        </div>
+      </div>
+
+      <!-- Resize Handle -->
+      <div class="resize-handle" (mousedown)="startLeftResize()"></div>
+    </div>
+
+    <!-- Middle Section - Playlists -->
+    <div class="middle-section" [style.width.px]="middleWidth()">
+      <div class="playlists-header">
+        <div class="header-left">
+          @if (selectedFriend()) {
+          <button class="back-btn" (click)="backToMyPlaylists()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
+          }
+          <h2>{{ selectedFriend() ? selectedFriend()!.username + "'s Playlists" : 'My Playlists' }}</h2>
+        </div>
+        @if (!selectedFriend()) {
+        <button class="add-playlist-btn" (click)="showCreatePlaylist.set(true)">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 4v12M4 10h12" />
+          </svg>
+        </button>
+        }
+      </div>
+
+      <div class="playlists-list">
+        @for (playlist of displayPlaylists(); track playlist.id) {
+        <div class="playlist-item" [class.active]="selectedPlaylist() === playlist.id"
+          (click)="selectPlaylist(playlist.id)" (contextmenu)="onPlaylistContextMenu($event, playlist)">
+          <div class="playlist-icon" [style.background-color]="playlist.color || '#3b82f6'">
+            @if (playlist.coverImage) {
+            <img [src]="getFileUrl(playlist.coverImage)" [alt]="playlist.name" />
+            } @else {
+            {{ playlist.icon || '🎵' }}
+            }
+          </div>
+          <div class="playlist-info">
+            <span class="playlist-name">{{ playlist.name }}</span>
+            <span class="playlist-meta">{{ playlist.tracksCount || 0 }} tracks</span>
+          </div>
+          @if (!selectedFriend()) {
+          <button class="menu-btn" (click)="togglePlaylistMenu(playlist.id, $event)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="5" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="12" cy="19" r="2" />
+            </svg>
+          </button>
+          @if (openMenuId() === playlist.id) {
+          <div class="dropdown-menu" (click)="$event.stopPropagation()">
+            <button (click)="viewPlaylistDetails(playlist, $event)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4M12 8h.01" />
+              </svg>
+              View Details
+            </button>
+            <button (click)="openEditPlaylist(playlist, $event)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Edit
+            </button>
+            <button class="danger" (click)="deletePlaylist(playlist, $event)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+              Delete
+            </button>
+          </div>
+          }
+          }
+        </div>
+        }
+        @empty {
+        <div class="empty-playlists">
+          <p>No playlists yet</p>
+          @if (!selectedFriend()) {
+          <button (click)="showCreatePlaylist.set(true)">Create one</button>
+          }
+        </div>
+        }
+      </div>
+
+      <!-- Resize Handle -->
+      <div class="resize-handle" (mousedown)="startMiddleResize()"></div>
+    </div>
+
+    <!-- Right Section - Content -->
+    <div class="right-section">
+      @if (isGhostMode() && selectedLiveUser()) {
+      <!-- Ghost Mode - Live Stream View -->
+      <div class="ghost-mode-view">
+        <div class="live-stream-content">
+          <div class="artist-avatar-large">
+            <img [src]="getFileUrl(selectedLiveUser()!.avatar)" [alt]="selectedLiveUser()!.name" />
+            <div class="live-badge">
+              <span class="dot"></span>
+              LIVE
+            </div>
+          </div>
+          <h1>{{ selectedLiveUser()!.name }}</h1>
+          <p class="genre">{{ selectedLiveUser()!.genre }}</p>
+          @if (selectedLiveUser()!.isArtist) {
+          <span class="streamer-type artist">Artist Stream</span>
+          } @else {
+          <span class="streamer-type friend">Friend's Session</span>
+          }
+          <div class="listeners-info">
+            <span class="dot green"></span>
+            <span>{{ selectedLiveUser()!.listeners }} listening now</span>
+          </div>
+          <div class="ghost-info">
+            <p class="emoji">🎧 Ghost Mode Active</p>
+            <p>You're listening to {{ selectedLiveUser()!.name }}'s live stream. Enjoy the music and vibe with other
+              listeners!</p>
+          </div>
+          <button class="exit-btn" (click)="exitGhostMode()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Exit Live Stream
+          </button>
+        </div>
+      </div>
+      } @else if (selectedArtist()) {
+      <!-- Artist Songs View -->
+      <div class="playlist-view artist-songs-view">
+        <div class="content-header">
+          <div class="artist-header-row">
+            <button class="back-btn" (click)="backFromArtistSongs()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+          </div>
+          <div class="header-info artist-header-info">
+            <div class="artist-avatar">
+              <img [src]="getFileUrl(selectedArtist()!.profileImage)" [alt]="selectedArtist()!.name" />
+            </div>
+            <div>
+              <h1>{{ selectedArtist()!.name }}</h1>
+              <p>{{ artistSongs().length }} songs · {{ selectedArtist()!.subscribersCount }} subscribers</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="songs-list">
+          @for (song of artistSongs(); track song.id; let i = $index) {
+          <div class="song-item" [class.playing]="currentSong()?.id === song.id" (click)="playSong(song)"
+            (contextmenu)="onSongContextMenu($event, song)">
+            <span class="song-index">{{ i + 1 }}</span>
+            <img [src]="getFileUrl(song.coverArt)" [alt]="song.title" class="song-cover" />
+            <div class="song-info">
+              <span class="song-title">{{ song.title }}</span>
+              <span class="song-artist">{{ song.artist.name || 'Unknown Artist' }}</span>
+            </div>
+            <span class="song-duration">{{ song.duration }}</span>
+            <button class="add-to-playlist-btn" title="Add to playlist"
+              (click)="showSongToPlaylist.set(song); $event.stopPropagation()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+            <button class="like-btn" [class.liked]="likedSongIds().has(song.id)" (click)="toggleLike(song, $event)">
+              <svg width="16" height="16" viewBox="0 0 24 24"
+                [attr.fill]="likedSongIds().has(song.id) ? 'currentColor' : 'none'" stroke="currentColor"
+                stroke-width="2">
+                <path
+                  d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </button>
+          </div>
+          } @empty {
+          <div class="empty-songs">
+            <p>No songs available from this artist</p>
+          </div>
+          }
+        </div>
+      </div>
+      } @else {
+      <!-- Normal Playlist View -->
+      <div class="playlist-view">
+        <!-- Search Header -->
+        <div class="content-header">
+          <div class="search-row">
+            <div class="global-search">
+              <svg class="search-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input type="text" placeholder="Search all songs..." [ngModel]="globalSearchQuery()"
+                (ngModelChange)="onSearchInput($event)" />
+            </div>
+            <button class="logout-btn" (click)="logout()" title="Logout">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="header-info">
+            <h1>{{ globalSearchQuery() ? 'Search Results' : (getCurrentPlaylist()?.name || 'Playlist') }}</h1>
+            <p>
+              @if (globalSearchQuery()) {
+              {{ searchResults().length }} results found
+              } @else {
+              {{ currentPlaylistSongs().length }} tracks
+              }
+            </p>
+          </div>
+        </div>
+
+        <!-- Songs List -->
+        <div class="songs-list">
+          @for (song of getDisplaySongs(); track song.id; let i = $index) {
+          <div class="song-item" [class.playing]="currentSong()?.id === song.id" (click)="playSong(song)"
+            (contextmenu)="onSongContextMenu($event, song)">
+            <span class="song-index">{{ i + 1 }}</span>
+            <img [src]="getFileUrl(song.coverArt)" [alt]="song.title" class="song-cover" />
+            <div class="song-info">
+              <span class="song-title">{{ song.title }}</span>
+              <span class="song-artist">{{ song.artist.name || 'Unknown Artist' }}</span>
+            </div>
+            <span class="song-duration">{{ song.duration }}</span>
+            <button class="add-to-playlist-btn" title="Add to playlist"
+              (click)="showSongToPlaylist.set(song); $event.stopPropagation()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+            <button class="like-btn" [class.liked]="likedSongIds().has(song.id)" (click)="toggleLike(song, $event)">
+              <svg width="16" height="16" viewBox="0 0 24 24"
+                [attr.fill]="likedSongIds().has(song.id) ? 'currentColor' : 'none'" stroke="currentColor"
+                stroke-width="2">
+                <path
+                  d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </button>
+          </div>
+          }
+          @empty {
+          <div class="empty-songs">
+            @if (globalSearchQuery()) {
+            <p>No songs found matching "{{ globalSearchQuery() }}"</p>
+            } @else {
+            <p>No songs in this playlist</p>
+            }
+          </div>
+          }
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+
+  <!-- Bottom Player Bar -->
+  <div class="player-bar">
+    <!-- Currently Playing -->
+    <div class="now-playing">
+      @if (audioPlayer.currentSong()) {
+      <img [src]="getFileUrl(audioPlayer.currentSong()?.coverArt)" alt="Now playing" class="now-playing-cover" />
+      <div class="now-playing-info">
+        <span class="title">
+          {{ audioPlayer.currentSong()?.title }}
+          @if (isGhostMode()) {
+          <span class="live-tag">LIVE</span>
+          }
+          @if (isUserLive()) {
+          <span class="broadcasting-tag">BROADCASTING</span>
+          }
+        </span>
+        <span class="artist">{{ audioPlayer.currentSong()?.artist?.name }}</span>
+      </div>
+      }
+    </div>
+
+    <!-- Player Controls -->
+    <div class="player-controls">
+      <div class="control-buttons">
+        <button class="control-btn" [class.active]="audioPlayer.isShuffle()" [class.disabled]="isGhostMode()"
+          [disabled]="isGhostMode()" (click)="audioPlayer.toggleShuffle()" title="Shuffle">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16 3 21 3 21 8" />
+            <line x1="4" y1="20" x2="21" y2="3" />
+            <polyline points="21 16 21 21 16 21" />
+            <line x1="15" y1="15" x2="21" y2="21" />
+            <line x1="4" y1="4" x2="9" y2="9" />
+          </svg>
+        </button>
+        <button class="control-btn" [class.disabled]="isGhostMode()" [disabled]="isGhostMode()"
+          (click)="audioPlayer.previous()" title="Previous">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="19 20 9 12 19 4 19 20" />
+            <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+        <button class="play-btn" [class.disabled]="isGhostMode()" [disabled]="isGhostMode()"
+          (click)="audioPlayer.togglePlayPause()" title="Play/Pause">
+          @if (audioPlayer.isPlaying()) {
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" />
+            <rect x="14" y="4" width="4" height="16" />
+          </svg>
+          } @else {
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          }
+        </button>
+        <button class="control-btn" [class.disabled]="isGhostMode()" [disabled]="isGhostMode()"
+          (click)="audioPlayer.next()" title="Next">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 4 15 12 5 20 5 4" />
+            <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+        <button class="control-btn" [class.active]="audioPlayer.isRepeat()" [class.disabled]="isGhostMode()"
+          [disabled]="isGhostMode()" (click)="audioPlayer.toggleRepeat()" title="Repeat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="17 1 21 5 17 9" />
+            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+            <polyline points="7 23 3 19 7 15" />
+            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+          </svg>
+        </button>
+      </div>
+      <div class="progress-bar">
+        <span class="time">{{ formatTime(audioPlayer.currentTime()) }}</span>
+        <div class="progress-track" [class.disabled]="isGhostMode()"
+          (click)="!isGhostMode() && onProgressClick($event)">
+          <div class="progress-fill" [style.width.%]="audioPlayer.progress()"></div>
+        </div>
+        <span class="time">{{ formatTime(audioPlayer.duration()) }}</span>
+      </div>
+    </div>
+
+    <!-- Volume -->
+    <div class="volume-controls">
+      <button class="control-btn" (click)="audioPlayer.toggleMute()" title="Volume">
+        @if (audioPlayer.volume() === 0) {
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <line x1="23" y1="9" x2="17" y2="15" />
+          <line x1="17" y1="9" x2="23" y2="15" />
+        </svg>
+        } @else {
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+        </svg>
+        }
+      </button>
+      <div class="volume-slider" (click)="onVolumeClick($event)">
+        <div class="volume-fill" [style.width.%]="audioPlayer.volume() * 100"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Menu -->
+  @if (contextMenu().visible) {
+  <div class="context-menu" [style.left.px]="contextMenu().x" [style.top.px]="contextMenu().y"
+    (click)="$event.stopPropagation()">
+    @if (contextMenu().type === 'playlist') {
+    <button (click)="contextMenuAction('view')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 16v-4M12 8h.01" />
+      </svg>
+      View Details
+    </button>
+    <button (click)="contextMenuAction('edit')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </svg>
+      Edit
+    </button>
+    <button class="danger" (click)="contextMenuAction('delete')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </svg>
+      Delete
+    </button>
+    }
+    @if (contextMenu().type === 'song') {
+    <button (click)="contextMenuAction('play')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="5 3 19 12 5 21 5 3" />
+      </svg>
+      Play
+    </button>
+    <button (click)="contextMenuAction('addToPlaylist')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+      Add to Playlist
+    </button>
+    <button (click)="contextMenuAction('like')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path
+          d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+      </svg>
+      Toggle Like
+    </button>
+    <button class="danger" (click)="contextMenuAction('removeFromPlaylist')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </svg>
+      Remove from Playlist
+    </button>
+    }
+    @if (contextMenu().type === 'friend') {
+    <button (click)="contextMenuAction('viewPlaylists')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </svg>
+      View Playlists
+    </button>
+    <button class="danger" (click)="contextMenuAction('remove')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="8.5" cy="7" r="4" />
+        <line x1="18" y1="8" x2="23" y2="13" />
+        <line x1="23" y1="8" x2="18" y2="13" />
+      </svg>
+      Remove Friend
+    </button>
+    }
+  </div>
+  }
+
+  <!-- Modals -->
+
+  <!-- Create Playlist Modal -->
+  @if (showCreatePlaylist()) {
+  <div class="modal-overlay" (click)="showCreatePlaylist.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Create Playlist</h3>
+        <button class="close-btn" (click)="showCreatePlaylist.set(false)">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="playlist-image-upload">
+          <div class="image-preview" [style.background-color]="'#3b82f6'">
+            @if (newPlaylistImagePreview()) {
+            <img [src]="newPlaylistImagePreview()" alt="Playlist cover" />
+            <button class="remove-image-btn" (click)="clearPlaylistImage(true)">×</button>
+            } @else {
+            <span class="placeholder-icon">🎵</span>
+            }
+          </div>
+          <label class="upload-btn">
+            <input type="file" accept="image/*" (change)="onPlaylistImageSelect($event, true)" hidden />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Upload Cover Image
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" [(ngModel)]="newPlaylistName" placeholder="My Playlist" />
+        </div>
+        <div class="form-group">
+          <label>Description (optional)</label>
+          <textarea [(ngModel)]="newPlaylistDescription" placeholder="Add a description" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="showCreatePlaylist.set(false)">Cancel</button>
+        <button class="btn-primary" (click)="createPlaylist()">Create</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Account Search Modal -->
+  @if (showAccountSearch()) {
+  <div class="modal-overlay" (click)="showAccountSearch.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Find Friends</h3>
+        <button class="close-btn" (click)="showAccountSearch.set(false)">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="search-input-group">
+          <input type="text" [(ngModel)]="accountSearchQuery" placeholder="Search by username or email"
+            (keyup.enter)="searchAccounts()" />
+          <button (click)="searchAccounts()">Search</button>
+        </div>
+        <div class="user-results">
+          @for (user of accountSearchResults(); track user.id) {
+          <div class="user-result-item">
+            <img [src]="getFileUrl(user.avatar)" [alt]="user.username" />
+            <div class="user-info">
+              <span class="username">{{ user.username }}</span>
+              <span class="email">{{ user.email }}</span>
+            </div>
+            <button class="btn-primary" (click)="sendFriendRequest(user.id)">Add Friend</button>
+          </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Friend Requests Modal -->
+  @if (showFriendRequests()) {
+  <div class="modal-overlay" (click)="showFriendRequests.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Friend Requests</h3>
+        <button class="close-btn" (click)="showFriendRequests.set(false)">×</button>
+      </div>
+      <div class="modal-body">
+        @for (request of friendRequests(); track request.id) {
+        <div class="request-item">
+          <img [src]="getFileUrl(request.from.avatar)" [alt]="request.from.username" />
+          <div class="request-info">
+            <span class="username">{{ request.from.username }}</span>
+            <span class="timestamp">{{ request.timestamp }}</span>
+          </div>
+          <div class="request-actions">
+            <button class="btn-primary" (click)="acceptFriendRequest(request)">Accept</button>
+            <button class="btn-secondary" (click)="rejectFriendRequest(request)">Decline</button>
+          </div>
+        </div>
+        }
+        @empty {
+        <p class="empty-text">No pending requests</p>
+        }
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- User Profile Modal -->
+  @if (showUserProfile()) {
+  <div class="modal-overlay" (click)="showUserProfile.set(false)">
+    <div class="modal profile-modal" (click)="$event.stopPropagation()">
+      <!-- Profile Header -->
+      <div class="profile-header">
+        <div class="profile-avatar-section">
+          <img [src]="getFileUrl(user()?.avatar)" [alt]="user()?.username" class="profile-avatar-large" />
+          @if (isUserLive()) {
+          <div class="profile-live-indicator">
+            <span class="live-dot"></span>
+            LIVE
+          </div>
+          }
+        </div>
+        <div class="profile-info-section">
+          <h2 class="profile-name">{{ user()?.username }}</h2>
+          <p class="profile-email">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+            {{ user()?.email }}
+          </p>
+          <div class="profile-header-actions">
+            <button class="btn-primary" (click)="openEditProfile()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Edit Profile
+            </button>
+            @if (isUserLive()) {
+            <button class="btn-danger" (click)="stopUserLive()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="4" width="4" height="16" />
+                <rect x="14" y="4" width="4" height="16" />
+              </svg>
+              Stop Broadcasting
+            </button>
+            } @else {
+            <button class="btn-live-red" (click)="showGoLive.set(true); showUserProfile.set(false)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="2" />
+                <path
+                  d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
+              </svg>
+              Go Live
+            </button>
+            }
+          </div>
+        </div>
+        <button class="profile-close-btn" (click)="showUserProfile.set(false)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="profile-stats-grid">
+        <button class="stat-card" (click)="showFriends.set(true); showUserProfile.set(false)">
+          <div class="stat-icon green">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <div class="stat-value">{{ user()?.friendsCount || 0 }}</div>
+          <div class="stat-label">Friends</div>
+          <div class="stat-action">Click to view</div>
+        </button>
+        <button class="stat-card" (click)="showArtists.set(true); showUserProfile.set(false)">
+          <div class="stat-icon purple">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="10" r="3" />
+              <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662" />
+            </svg>
+          </div>
+          <div class="stat-value">{{ user()?.subscribedArtistsCount || 0 }}</div>
+          <div class="stat-label">Artists</div>
+          <div class="stat-action">Click to view</div>
+        </button>
+        <button class="stat-card">
+          <div class="stat-icon pink">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
+            </svg>
+          </div>
+          <div class="stat-value">{{ user()?.totalSongsInPlaylists || 0 }}</div>
+          <div class="stat-label">Songs</div>
+          <div class="stat-action">Click to view</div>
+        </button>
+      </div>
+
+      <div class="profile-divider"></div>
+
+      <!-- Actions Grid -->
+      <div class="profile-actions-grid">
+        <button class="btn-action-primary" (click)="showAccountSearch.set(true); showUserProfile.set(false)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="8.5" cy="7" r="4" />
+            <line x1="20" y1="8" x2="20" y2="14" />
+            <line x1="23" y1="11" x2="17" y2="11" />
+          </svg>
+          Add Friends
+        </button>
+        <button class="btn-action-secondary" (click)="showFriendRequests.set(true); showUserProfile.set(false)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="8.5" cy="7" r="4" />
+            <polyline points="17 11 19 13 23 9" />
+          </svg>
+          Friend Requests
+          @if (friendRequests().length > 0) {
+          <span class="request-badge">{{ friendRequests().length }}</span>
+          }
+        </button>
+      </div>
+
+      <div class="profile-divider"></div>
+
+      <!-- Logout -->
+      <button class="btn-logout" (click)="logout()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+        Logout
+      </button>
+    </div>
+  </div>
+  }
+
+  <!-- Edit Profile Modal -->
+  @if (showEditProfile()) {
+  <div class="modal-overlay" (click)="closeEditProfile()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Edit Profile</h3>
+        <button class="close-btn" (click)="closeEditProfile()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="avatar-upload">
+          <div class="avatar-preview">
+            <img [src]="avatarPreview() || getFileUrl(user()?.avatar)" [alt]="user()?.username" />
+            <label class="avatar-edit-btn">
+              <input type="file" accept="image/*" (change)="onAvatarSelect($event)" hidden />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </label>
+          </div>
+          <p class="avatar-hint">Click the camera icon to change your photo</p>
+        </div>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" [(ngModel)]="editProfileForm.username" placeholder="Username" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" [(ngModel)]="editProfileForm.email" placeholder="Email" />
+        </div>
+        <button class="btn-link" (click)="openChangePassword()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          Change Password
+        </button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeEditProfile()">Cancel</button>
+        <button class="btn-primary" (click)="saveProfile()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Change Password Modal -->
+  @if (showChangePassword()) {
+  <div class="modal-overlay" (click)="closeChangePassword()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Change Password</h3>
+        <button class="close-btn" (click)="closeChangePassword()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Current Password</label>
+          <input type="password" [(ngModel)]="changePasswordForm.currentPassword"
+            placeholder="Enter current password" />
+        </div>
+        <div class="form-group">
+          <label>New Password</label>
+          <input type="password" [(ngModel)]="changePasswordForm.newPassword" placeholder="Enter new password" />
+        </div>
+        <div class="form-group">
+          <label>Confirm New Password</label>
+          <input type="password" [(ngModel)]="changePasswordForm.confirmNewPassword"
+            placeholder="Confirm new password" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeChangePassword()">Cancel</button>
+        <button class="btn-primary" (click)="savePassword()">Change Password</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Go Live Modal -->
+  @if (showGoLive()) {
+  <div class="modal-overlay" (click)="showGoLive.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span class="live-icon">📡</span>
+          Go Live
+        </h3>
+        <button class="close-btn" (click)="showGoLive.set(false)">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="go-live-content">
+          <p class="go-live-description">
+            When you go live, your friends will see you in the "Live Now" section.
+            They can join your session to listen along with you in Ghost Mode!
+          </p>
+          <div class="form-group">
+            <label>What are you listening to?</label>
+            <input type="text" [(ngModel)]="goLiveGenre"
+              placeholder="e.g., Chill Vibes, Rock Session, Late Night Jazz" />
+          </div>
+          <div class="go-live-features">
+            <div class="feature">
+              <span>👥</span>
+              <span>Friends can join and listen with you</span>
+            </div>
+            <div class="feature">
+              <span>🎧</span>
+              <span>They hear exactly what you hear</span>
+            </div>
+            <div class="feature">
+              <span>👻</span>
+              <span>Ghost Mode - seamless listening experience</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="showGoLive.set(false)">Cancel</button>
+        <button class="btn-live-start" (click)="startUserLive()">
+          <span class="dot"></span>
+          Start Broadcasting
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Add to Playlist Modal -->
+  @if (showSongToPlaylist()) {
+  <div class="modal-overlay" (click)="showSongToPlaylist.set(null)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add to Playlist</h3>
+        <button class="close-btn" (click)="showSongToPlaylist.set(null)">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="song-to-add">Adding: {{ showSongToPlaylist()?.title }}</p>
+        <div class="playlist-options">
+          @for (playlist of playlists(); track playlist.id) {
+          <button class="playlist-option" [class.has-song]="playlistsWithSong().has(playlist.id)"
+            [disabled]="playlistsWithSong().has(playlist.id)"
+            (click)="!playlistsWithSong().has(playlist.id) && addSongToPlaylist(playlist.id)">
+            <span class="icon" [style.background-color]="playlist.color || '#3b82f6'">
+              {{ playlist.icon || '🎵' }}
+            </span>
+            <span class="name">{{ playlist.name }}</span>
+            <span class="count">
+              {{ playlist.tracksCount || 0 }} tracks
+              @if (playlistsWithSong().has(playlist.id)) {
+              <span class="added-badge">(Added)</span>
+              }
+            </span>
+          </button>
+          }
+          @empty {
+          <div class="empty-playlists-modal">
+            <p>No playlists yet</p>
+            <button class="btn-primary" (click)="showSongToPlaylist.set(null); showCreatePlaylist.set(true)">
+              Create Playlist
+            </button>
+          </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Playlist Detail Modal -->
+  @if (showPlaylistDetail() && selectedPlaylistForAction()) {
+  <div class="modal-overlay" (click)="closePlaylistModals()">
+    <div class="modal large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Playlist Details</h3>
+        <button class="close-btn" (click)="closePlaylistModals()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="playlist-detail-content">
+          <div class="playlist-detail-icon" [style.background-color]="selectedPlaylistForAction()!.color || '#3b82f6'">
+            @if (selectedPlaylistForAction()!.coverImage) {
+            <img [src]="getFileUrl(selectedPlaylistForAction()!.coverImage)"
+              [alt]="selectedPlaylistForAction()!.name" />
+            } @else {
+            {{ selectedPlaylistForAction()!.icon || '🎵' }}
+            }
+          </div>
+          <h2>{{ selectedPlaylistForAction()!.name }}</h2>
+          <p class="playlist-description">{{ selectedPlaylistForAction()!.description || 'No description' }}</p>
+          <div class="playlist-meta-info">
+            <div class="meta-item">
+              <span class="label">Tracks</span>
+              <span class="value">{{ selectedPlaylistForAction()!.tracksCount || 0 }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="label">Status</span>
+              <span class="value">{{ selectedPlaylistForAction()!.status }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="label">Created</span>
+              <span class="value">{{ selectedPlaylistForAction()!.createdAt | date:'mediumDate' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closePlaylistModals()">Close</button>
+        <button class="btn-primary" (click)="openEditFromDetail()">
+          Edit Playlist
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Playlist Edit Modal -->
+  @if (showPlaylistEdit() && selectedPlaylistForAction()) {
+  <div class="modal-overlay" (click)="closePlaylistModals()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Edit Playlist</h3>
+        <button class="close-btn" (click)="closePlaylistModals()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="playlist-image-upload">
+          <div class="image-preview" [style.background-color]="editPlaylistForm.color || '#3b82f6'">
+            @if (editPlaylistImagePreview()) {
+            <img [src]="editPlaylistImagePreview()" alt="Playlist cover" />
+            <button class="remove-image-btn" (click)="clearPlaylistImage(false)">×</button>
+            } @else if (selectedPlaylistForAction()!.coverImage) {
+            <img [src]="getFileUrl(selectedPlaylistForAction()!.coverImage)" alt="Playlist cover" />
+            <button class="remove-image-btn" (click)="clearPlaylistImage(false)">×</button>
+            } @else {
+            <span class="placeholder-icon">{{ editPlaylistForm.icon || '🎵' }}</span>
+            }
+          </div>
+          <label class="upload-btn">
+            <input type="file" accept="image/*" (change)="onPlaylistImageSelect($event, false)" hidden />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Change Cover Image
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" [(ngModel)]="editPlaylistForm.name" placeholder="Playlist name" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea [(ngModel)]="editPlaylistForm.description" placeholder="Add a description" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select [(ngModel)]="editPlaylistForm.status">
+            <option value="Private">Private</option>
+            <option value="Public">Public</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Icon (fallback)</label>
+            <input type="text" [(ngModel)]="editPlaylistForm.icon" placeholder="🎵" maxlength="2" />
+          </div>
+          <div class="form-group">
+            <label>Color (fallback)</label>
+            <input type="color" [(ngModel)]="editPlaylistForm.color" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closePlaylistModals()">Cancel</button>
+        <button class="btn-primary" (click)="savePlaylistEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Friends List Modal -->
+  @if (showFriends()) {
+  <div class="modal-overlay" (click)="showFriends.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Friends ({{ friends().length }})</h3>
+        <button class="close-btn" (click)="showFriends.set(false)">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="friends-list-modal">
+          @for (friend of friends(); track friend.id) {
+          <div class="friend-item" (click)="viewFriendPlaylists(friend); showFriends.set(false)">
+            <div class="avatar-container">
+              <img [src]="getFileUrl(friend.avatar)" [alt]="friend.username" />
+              @if (friend.isOnline) {
+              <div class="online-indicator"></div>
+              }
+            </div>
+            <div class="friend-info">
+              <span class="name">{{ friend.username }}</span>
+              <span class="status">{{ friend.isOnline ? (friend.status || 'Online') : friend.status }}</span>
+            </div>
+            <button class="btn-icon" (click)="onFriendContextMenu($event, friend)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="12" cy="5" r="1" />
+                <circle cx="12" cy="19" r="1" />
+              </svg>
+            </button>
+          </div>
+          }
+          @empty {
+          <p class="empty-text">No friends yet</p>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Artists List Modal -->
+  @if (showArtists()) {
+  <div class="modal-overlay" (click)="showArtists.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Following Artists ({{ subscribedArtists().length }})</h3>
+        <button class="close-btn" (click)="showArtists.set(false)">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- Search Artists Section -->
+        <div class="search-input-group">
+          <input type="text" [(ngModel)]="artistSearchQuery" placeholder="Search artists to follow..."
+            (keyup.enter)="searchArtistsToFollow()" />
+          <button (click)="searchArtistsToFollow()">Search</button>
+        </div>
+
+        <!-- Search Results -->
+        @if (artistSearchResults().length > 0) {
+        <div class="search-results-section">
+          <h4>Search Results</h4>
+          <div class="friends-list-modal">
+            @for (artist of artistSearchResults(); track artist.id) {
+            <div class="friend-item">
+              <div class="avatar-container">
+                <img [src]="getFileUrl(artist.profileImage)" [alt]="artist.name" />
+                @if (artist.isLive) {
+                <div class="live-indicator"></div>
+                }
+              </div>
+              <div class="friend-info">
+                <span class="name">{{ artist.name }}</span>
+                <span class="status">{{ artist.subscribersCount }} subscribers</span>
+              </div>
+              @if (isArtistSubscribed(artist.id)) {
+              <button class="btn-secondary btn-small" (click)="toggleArtistSubscription(artist)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </button>
+              } @else {
+              <button class="btn-primary btn-small" (click)="toggleArtistSubscription(artist)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </button>
+              }
+            </div>
+            }
+          </div>
+        </div>
+        }
+
+        <!-- Subscribed Artists -->
+        @if (subscribedArtists().length > 0) {
+        <div class="subscribed-section">
+          <h4>Following</h4>
+          <div class="friends-list-modal">
+            @for (artist of subscribedArtists(); track artist.id) {
+            <div class="friend-item" (click)="viewArtistSongs(artist)" style="cursor: pointer;">
+              <div class="avatar-container">
+                <img [src]="getFileUrl(artist.profileImage)" [alt]="artist.name" />
+                @if (artist.isLive) {
+                <div class="live-indicator"></div>
+                }
+              </div>
+              <div class="friend-info">
+                <span class="name">{{ artist.name }}</span>
+                <span class="status">{{ artist.isLive ? 'Live Now' : (artist.subscribersCount + ' subscribers')
+                  }}</span>
+              </div>
+              <button class="btn-danger btn-small" (click)="toggleArtistSubscription(artist); $event.stopPropagation()"
+                title="Unsubscribe">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </button>
+            </div>
+            }
+          </div>
+        </div>
+        } @else if (artistSearchResults().length === 0) {
+        <p class="empty-text">Not following any artists. Search above to find artists to follow!</p>
+        }
+      </div>
+    </div>
+  </div>
+  }
+</div>
