@@ -2265,3 +2265,132 @@ $white: #ffffff;
     }
   }
 }
+
+.song-item.locked {
+  opacity: 0.75;
+}
+
+.song-price-badge {
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  color: #fff;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.song-owned-badge {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.purchase-modal {
+  max-width: 400px;
+  width: 90%;
+
+  .purchase-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+  }
+
+  .purchase-cover {
+    width: 120px;
+    height: 120px;
+    border-radius: 0.75rem;
+    object-fit: cover;
+  }
+
+  .purchase-info {
+    text-align: center;
+
+    h4 {
+      color: #fff;
+      font-size: 1.1rem;
+      margin: 0 0 0.25rem;
+    }
+
+    p {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin: 0;
+    }
+  }
+
+  .purchase-price {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 1rem;
+    background: rgba(168, 85, 247, 0.1);
+    border-radius: 0.75rem;
+    width: 100%;
+
+    .price-label {
+      color: #94a3b8;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .price-value {
+      color: #a855f7;
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+  }
+
+  .purchase-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+
+    .btn-purchase {
+      background: linear-gradient(135deg, #a855f7, #6366f1);
+      color: #fff;
+      border: none;
+      padding: 0.875rem 1.5rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: opacity 0.15s;
+
+      &:hover {
+        opacity: 0.9;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    .btn-cancel {
+      background: transparent;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.15s;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+    }
+  }
+}

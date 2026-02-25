@@ -50,7 +50,7 @@ export class AudioPlayerService {
     });
 
     this.audio.addEventListener('ended', () => {
-      // In ghost mode, don't auto-advance - wait for streamer sync
+      this.recordPlay();
       if (this.isGhostModeSignal()) {
         return;
       }
@@ -72,6 +72,9 @@ export class AudioPlayerService {
   }
 
   playSong(song: Song): void {
+    if (this.currentSongSignal() && this.audio.currentTime > 0) {
+      this.recordPlay();
+    }
     this.currentSongSignal.set(song);
     this.audio.src = this.songService.getStreamUrl(song.id);
     this.audio.volume = this.volumeSignal();
@@ -84,6 +87,11 @@ export class AudioPlayerService {
     if (songs.length > 0) {
       this.playSong(songs[startIndex]);
     }
+  }
+
+  setPlaylistWithoutPlay(songs: Song[], currentIndex: number = 0): void {
+    this.playlistSignal.set(songs);
+    this.currentIndexSignal.set(currentIndex);
   }
 
   play(): void {
@@ -104,15 +112,30 @@ export class AudioPlayerService {
     }
   }
 
+  private isPlayable(song: Song): boolean {
+    return song.isFree || song.isPurchased;
+  }
+
   next(): void {
     const playlist = this.playlistSignal();
     if (playlist.length === 0) return;
 
+    const startIndex = this.currentIndexSignal();
     let nextIndex: number;
+
     if (this.isShuffleSignal()) {
-      nextIndex = Math.floor(Math.random() * playlist.length);
+      const playable = playlist.filter((s, i) => i !== startIndex && this.isPlayable(s));
+      if (playable.length === 0) return;
+      const pick = playable[Math.floor(Math.random() * playable.length)];
+      nextIndex = playlist.indexOf(pick);
     } else {
-      nextIndex = (this.currentIndexSignal() + 1) % playlist.length;
+      let checked = 0;
+      nextIndex = (startIndex + 1) % playlist.length;
+      while (!this.isPlayable(playlist[nextIndex]) && checked < playlist.length) {
+        nextIndex = (nextIndex + 1) % playlist.length;
+        checked++;
+      }
+      if (checked >= playlist.length) return;
     }
 
     this.currentIndexSignal.set(nextIndex);
@@ -123,15 +146,20 @@ export class AudioPlayerService {
     const playlist = this.playlistSignal();
     if (playlist.length === 0) return;
 
-    // If more than 3 seconds into the song, restart it
     if (this.audio.currentTime > 3) {
       this.audio.currentTime = 0;
       return;
     }
 
-    const prevIndex = this.currentIndexSignal() === 0
-      ? playlist.length - 1
-      : this.currentIndexSignal() - 1;
+    const startIndex = this.currentIndexSignal();
+    let prevIndex = startIndex === 0 ? playlist.length - 1 : startIndex - 1;
+    let checked = 0;
+
+    while (!this.isPlayable(playlist[prevIndex]) && checked < playlist.length) {
+      prevIndex = prevIndex === 0 ? playlist.length - 1 : prevIndex - 1;
+      checked++;
+    }
+    if (checked >= playlist.length) return;
 
     this.currentIndexSignal.set(prevIndex);
     this.playSong(playlist[prevIndex]);

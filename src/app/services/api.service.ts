@@ -67,6 +67,8 @@ export class ApiService {
   }
 
   getStreamUrl(songId: string): string {
-    return `${this.baseUrl}/songs/${songId}/stream`;
+    const token = localStorage.getItem('token');
+    const base = `${this.baseUrl}/songs/${songId}/stream`;
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
   }
 }

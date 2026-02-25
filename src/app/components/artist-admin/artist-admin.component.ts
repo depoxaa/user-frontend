@@ -13,6 +13,8 @@ interface UploadSongForm {
   releaseDate: string;
   audioFile: File | null;
   coverArtFile: File | null;
+  isFree: boolean;
+  price: number;
 }
 
 @Component({
@@ -38,9 +40,11 @@ export class ArtistAdminComponent implements OnInit {
     title: '',
     albumName: '',
     genreId: '',
-    releaseDate: '',
+    releaseDate: new Date().toISOString().split('T')[0],
     audioFile: null,
-    coverArtFile: null
+    coverArtFile: null,
+    isFree: true,
+    price: 0
   };
   isUploading = signal<boolean>(false);
 
@@ -143,7 +147,8 @@ export class ArtistAdminComponent implements OnInit {
       title: this.uploadForm.title,
       genreId: this.uploadForm.genreId,
       albumName: this.uploadForm.albumName || undefined,
-      releaseDate: this.uploadForm.releaseDate ? new Date(this.uploadForm.releaseDate) : undefined
+      releaseDate: this.uploadForm.releaseDate ? new Date(this.uploadForm.releaseDate) : undefined,
+      price: this.uploadForm.isFree ? 0 : this.uploadForm.price
     }, this.uploadForm.audioFile, this.uploadForm.coverArtFile || undefined).subscribe({
       next: () => {
         this.isUploading.set(false);
@@ -166,9 +171,11 @@ export class ArtistAdminComponent implements OnInit {
       title: '',
       albumName: '',
       genreId: '',
-      releaseDate: '',
+      releaseDate: new Date().toISOString().split('T')[0],
       audioFile: null,
-      coverArtFile: null
+      coverArtFile: null,
+      isFree: true,
+      price: 0
     };
   }
 

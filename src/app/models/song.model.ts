@@ -11,6 +11,9 @@ export interface Song {
   album?: AlbumInfo;
   genre: GenreInfo;
   isLiked: boolean;
+  price: number;
+  isFree: boolean;
+  isPurchased: boolean;
 }
 
 export interface ArtistInfo {
@@ -37,6 +40,7 @@ export interface CreateSongRequest {
   albumId?: string;
   albumName?: string;
   releaseDate?: Date;
+  price?: number;
 }
 
 export interface UpdateSongRequest {
@@ -44,4 +48,14 @@ export interface UpdateSongRequest {
   genreId?: string;
   albumId?: string;
   releaseDate?: Date;
+  price?: number;
+}
+
+export interface SongPurchaseResponse {
+  id: string;
+  songId: string;
+  songTitle: string;
+  amount: number;
+  currency: string;
+  purchasedAt: Date;
 }

@@ -247,7 +247,8 @@
 
         <div class="songs-list">
           @for (song of artistSongs(); track song.id; let i = $index) {
-          <div class="song-item" [class.playing]="currentSong()?.id === song.id" (click)="playSong(song)"
+          <div class="song-item" [class.playing]="currentSong()?.id === song.id"
+            [class.locked]="!song.isFree && !song.isPurchased" (click)="playSong(song)"
             (contextmenu)="onSongContextMenu($event, song)">
             <span class="song-index">{{ i + 1 }}</span>
             <img [src]="getFileUrl(song.coverArt)" [alt]="song.title" class="song-cover" />
@@ -255,6 +256,11 @@
               <span class="song-title">{{ song.title }}</span>
               <span class="song-artist">{{ song.artist.name || 'Unknown Artist' }}</span>
             </div>
+            @if (!song.isFree && !song.isPurchased) {
+            <span class="song-price-badge">${{ song.price.toFixed(2) }}</span>
+            } @else if (!song.isFree && song.isPurchased) {
+            <span class="song-owned-badge">Owned</span>
+            }
             <span class="song-duration">{{ song.duration }}</span>
             <button class="add-to-playlist-btn" title="Add to playlist"
               (click)="showSongToPlaylist.set(song); $event.stopPropagation()">
@@ -317,7 +323,8 @@
         <!-- Songs List -->
         <div class="songs-list">
           @for (song of getDisplaySongs(); track song.id; let i = $index) {
-          <div class="song-item" [class.playing]="currentSong()?.id === song.id" (click)="playSong(song)"
+          <div class="song-item" [class.playing]="currentSong()?.id === song.id"
+            [class.locked]="!song.isFree && !song.isPurchased" (click)="playSong(song)"
             (contextmenu)="onSongContextMenu($event, song)">
             <span class="song-index">{{ i + 1 }}</span>
             <img [src]="getFileUrl(song.coverArt)" [alt]="song.title" class="song-cover" />
@@ -325,6 +332,11 @@
               <span class="song-title">{{ song.title }}</span>
               <span class="song-artist">{{ song.artist.name || 'Unknown Artist' }}</span>
             </div>
+            @if (!song.isFree && !song.isPurchased) {
+            <span class="song-price-badge">${{ song.price.toFixed(2) }}</span>
+            } @else if (!song.isFree && song.isPurchased) {
+            <span class="song-owned-badge">Owned</span>
+            }
             <span class="song-duration">{{ song.duration }}</span>
             <button class="add-to-playlist-btn" title="Add to playlist"
               (click)="showSongToPlaylist.set(song); $event.stopPropagation()">
@@ -1188,6 +1200,40 @@
         } @else if (artistSearchResults().length === 0) {
         <p class="empty-text">Not following any artists. Search above to find artists to follow!</p>
         }
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Purchase Modal -->
+  @if (showPurchaseModal()) {
+  <div class="modal-backdrop" (click)="showPurchaseModal.set(null)">
+    <div class="modal purchase-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Purchase Song</h3>
+        <button class="close-btn" (click)="showPurchaseModal.set(null)">&times;</button>
+      </div>
+      <div class="purchase-content">
+        <img [src]="getFileUrl(showPurchaseModal()?.coverArt)" [alt]="showPurchaseModal()?.title"
+          class="purchase-cover" />
+        <div class="purchase-info">
+          <h4>{{ showPurchaseModal()?.title }}</h4>
+          <p>{{ showPurchaseModal()?.artist?.name }}</p>
+        </div>
+        <div class="purchase-price">
+          <span class="price-label">Price</span>
+          <span class="price-value">${{ showPurchaseModal()?.price?.toFixed(2) }}</span>
+        </div>
+        <div class="purchase-actions">
+          <button class="btn-purchase" [disabled]="isPurchasing()" (click)="purchaseSong(showPurchaseModal()!)">
+            @if (isPurchasing()) {
+            Processing...
+            } @else {
+            Pay with Google Pay
+            }
+          </button>
+          <button class="btn-cancel" (click)="showPurchaseModal.set(null)">Cancel</button>
+        </div>
       </div>
     </div>
   </div>

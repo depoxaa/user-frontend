@@ -9,3 +9,4 @@ export * from './genre.service';
 export * from './album.service';
 export * from './audio-player.service';
 export * from './sse.service';
+export * from './payment.service';

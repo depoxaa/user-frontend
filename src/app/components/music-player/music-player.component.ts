@@ -11,7 +11,8 @@ import {
   FriendService,
   ArtistService,
   UserService,
-  SseService
+  SseService,
+  PaymentService
 } from '../../services';
 import { Song, Playlist, PlaylistDetail, Friend, Artist, FriendRequest, User } from '../../models';
 import { environment } from '../../../environments/environment';
@@ -98,6 +99,8 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
   showGoLive = signal<boolean>(false);
   openMenuId = signal<string | null>(null);
   playlistsWithSong = signal<Set<string>>(new Set());
+  showPurchaseModal = signal<Song | null>(null);
+  isPurchasing = signal<boolean>(false);
 
   // Context Menu
   contextMenu = signal<{
@@ -188,7 +191,8 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
     private artistService: ArtistService,
     private userService: UserService,
     private router: Router,
-    private sseService: SseService
+    private sseService: SseService,
+    private paymentService: PaymentService
   ) {
     // Immediate broadcast when play/pause state changes
     effect(() => {
@@ -431,7 +435,10 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
             releaseDate: new Date(),
             totalPlays: 0,
             totalLikes: 0,
-            totalListeningTime: ''
+            totalListeningTime: '',
+            price: 0,
+            isFree: true,
+            isPurchased: true
           }));
           this.currentPlaylistSongs.set(songs);
         }
@@ -646,8 +653,39 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
 
   // Song actions
   playSong(song: Song): void {
+    if (!song.isFree && !song.isPurchased) {
+      this.showPurchaseModal.set(song);
+      return;
+    }
     this.currentSong.set(song);
+
+    const displaySongs = this.selectedArtist() ? this.artistSongs() : this.getDisplaySongs();
+    const index = displaySongs.findIndex(s => s.id === song.id);
+    if (displaySongs.length > 0 && index !== -1) {
+      this.audioPlayer.setPlaylistWithoutPlay(displaySongs, index);
+    }
+
     this.audioPlayer.playSong(song);
+  }
+
+  purchaseSong(song: Song): void {
+    this.isPurchasing.set(true);
+    this.paymentService.purchaseWithGooglePay(song).subscribe({
+      next: () => {
+        this.isPurchasing.set(false);
+        this.showPurchaseModal.set(null);
+        song.isPurchased = true;
+        this.currentSong.set(song);
+        this.audioPlayer.playSong(song);
+      },
+      error: (err) => {
+        this.isPurchasing.set(false);
+        console.error('Purchase failed', err);
+        if (err?.message !== 'User closed the payment sheet') {
+          alert('Purchase failed. Please try again.');
+        }
+      }
+    });
   }
 
   toggleLike(song: Song, event?: Event): void {

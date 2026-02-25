@@ -66,6 +66,7 @@ export class SongService {
     if (data.albumName) {
       formData.append('albumName', data.albumName);
     }
+    formData.append('price', (data.price ?? 0).toString());
     formData.append('audioFile', audioFile);
     if (coverFile) {
       formData.append('coverFile', coverFile);
@@ -87,5 +88,9 @@ export class SongService {
 
   getStreamUrl(songId: string): string {
     return this.api.getStreamUrl(songId);
+  }
+
+  getPurchasedSongs(): Observable<Song[]> {
+    return this.api.get<Song[]>('/songs/purchased');
   }
 }
