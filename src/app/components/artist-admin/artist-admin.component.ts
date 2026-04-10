@@ -1,8 +1,9 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService, ArtistService, SongService, GenreService } from '../../services';
+import { Subscription } from 'rxjs';
+import { AuthService, ArtistService, SongService, GenreService, SseService } from '../../services';
 import { Artist, ArtistStats, Song, GenreInfo } from '../../models';
 import { environment } from '../../../environments/environment';
 
@@ -24,15 +25,22 @@ interface UploadSongForm {
   templateUrl: './artist-admin.component.html',
   styleUrl: './artist-admin.component.scss'
 })
-export class ArtistAdminComponent implements OnInit {
+export class ArtistAdminComponent implements OnInit, OnDestroy {
   // Tabs
-  activeTab = signal<'overview' | 'upload' | 'songs' | 'settings'>('overview');
+  activeTab = signal<'overview' | 'upload' | 'songs' | 'alerts' | 'settings'>('overview');
 
   // Artist data
   artist = signal<Artist | null>(null);
   stats = signal<ArtistStats | null>(null);
   songs = signal<Song[]>([]);
   genres = signal<GenreInfo[]>([]);
+
+  // Copyright claims
+  copyrightClaims = signal<any[]>([]);
+  copyrightHistory = signal<any[]>([]);
+  bannedSongs = signal<any[]>([]);
+  copyrightAlert = signal<any>(null);
+  private sseSubscription?: Subscription;
 
 
   // Upload form
@@ -63,6 +71,7 @@ export class ArtistAdminComponent implements OnInit {
     private artistService: ArtistService,
     private songService: SongService,
     private genreService: GenreService,
+    private sseService: SseService,
     private router: Router
   ) { }
 
@@ -71,6 +80,24 @@ export class ArtistAdminComponent implements OnInit {
     this.loadStats();
     this.loadSongs();
     this.loadGenres();
+    this.loadCopyrightClaims();
+
+    // Connect SSE and listen for copyright claim events
+    this.sseService.connect();
+    this.sseSubscription = this.sseService.copyrightClaim$.subscribe(event => {
+      if (event.action === 'new') {
+        this.copyrightAlert.set(event);
+        this.loadCopyrightClaims();
+      } else if (event.action === 'songRemoved') {
+        // This artist's song was removed — reload songs and banned list
+        this.loadSongs();
+        this.loadCopyrightClaims();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.sseSubscription?.unsubscribe();
   }
 
   loadArtistData(): void {
@@ -286,5 +313,48 @@ export class ArtistAdminComponent implements OnInit {
   logout(): void {
     this.authService.logout();
     this.router.navigate(['/auth']);
+  }
+
+  // === COPYRIGHT CLAIMS ===
+
+  loadCopyrightClaims(): void {
+    this.artistService.getCopyrightClaims().subscribe({
+      next: (claims) => this.copyrightClaims.set(claims),
+      error: () => {}
+    });
+    this.artistService.getCopyrightClaimHistory().subscribe({
+      next: (history) => this.copyrightHistory.set(history),
+      error: () => {}
+    });
+    this.artistService.getBannedSongs().subscribe({
+      next: (banned) => this.bannedSongs.set(banned),
+      error: () => {}
+    });
+  }
+
+  confirmClaim(claimId: string): void {
+    if (!confirm('Are you sure you want to confirm this copyright claim? The infringing song will be permanently deleted.')) return;
+    this.artistService.confirmCopyrightClaim(claimId).subscribe({
+      next: () => {
+        this.copyrightClaims.update(claims => claims.filter(c => c.id !== claimId));
+        this.copyrightAlert.set(null);
+        alert('Copyright claim confirmed. The infringing song has been removed from the platform.');
+      },
+      error: (err) => alert(err?.error?.message || 'Failed to confirm claim')
+    });
+  }
+
+  dismissClaim(claimId: string): void {
+    this.artistService.dismissCopyrightClaim(claimId).subscribe({
+      next: () => {
+        this.copyrightClaims.update(claims => claims.filter(c => c.id !== claimId));
+        this.copyrightAlert.set(null);
+      },
+      error: (err) => alert(err?.error?.message || 'Failed to dismiss claim')
+    });
+  }
+
+  closeCopyrightAlert(): void {
+    this.copyrightAlert.set(null);
   }
 }

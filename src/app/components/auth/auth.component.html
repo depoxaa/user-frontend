@@ -82,29 +82,29 @@
           Back to Login
         </button>
       } @else {
-        <!-- Username / Name -->
+        <!-- Username -->
         <div class="form-group">
           @if (mode() === 'login') {
-            <label>{{ userType() === 'artist' ? 'Email' : 'Username' }}</label>
-            <input 
-              type="text" 
+            <label>Username</label>
+            <input
+              type="text"
               [(ngModel)]="username"
               name="username"
-              [placeholder]="userType() === 'artist' ? 'Enter your email' : 'Enter your username'"
+              placeholder="Enter your username"
             />
           } @else {
-            <label>{{ userType() === 'artist' ? 'Artist Name' : 'Username' }} <span class="required">*</span></label>
-            <input 
-              type="text" 
+            <label>Username <span class="required">*</span></label>
+            <input
+              type="text"
               [(ngModel)]="username"
               name="username"
-              [placeholder]="userType() === 'artist' ? 'Enter artist name' : 'Enter username'"
+              placeholder="Enter username"
               [class.input-error]="submitted && !username"
             />
             @if (submitted && !username) {
-              <span class="field-error">{{ userType() === 'artist' ? 'Artist name' : 'Username' }} is required</span>
+              <span class="field-error">Username is required</span>
             } @else if (submitted && username.length < 3) {
-              <span class="field-error">{{ userType() === 'artist' ? 'Artist name' : 'Username' }} must be at least 3 characters</span>
+              <span class="field-error">Username must be at least 3 characters</span>
             }
           }
         </div>

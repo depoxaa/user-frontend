@@ -27,12 +27,16 @@ export class SseService implements OnDestroy {
     private _friends = new Subject<{ action: string }>();
     private _liveUsers = new Subject<{ userId: string; username: string; action: string; genre: string }>();
     private _heartbeat = new Subject<{ timestamp: string }>();
+    private _viewerCount = new Subject<{ hostId: string; viewerCount: number }>();
+    private _copyrightClaim = new Subject<any>();
 
     // Public observables
     friendRequest$ = this._friendRequest.asObservable();
     friends$ = this._friends.asObservable();
     liveUsers$ = this._liveUsers.asObservable();
     heartbeat$ = this._heartbeat.asObservable();
+    viewerCount$ = this._viewerCount.asObservable();
+    copyrightClaim$ = this._copyrightClaim.asObservable();
 
     constructor() {
         // Handle visibility change to pause/resume SSE connection
@@ -94,6 +98,16 @@ export class SseService implements OnDestroy {
             this.eventSource.addEventListener('liveUsers', (event: MessageEvent) => {
                 const data = JSON.parse(event.data);
                 this._liveUsers.next(data);
+            });
+
+            this.eventSource.addEventListener('viewer_count', (event: MessageEvent) => {
+                const data = JSON.parse(event.data);
+                this._viewerCount.next(data);
+            });
+
+            this.eventSource.addEventListener('copyrightClaim', (event: MessageEvent) => {
+                const data = JSON.parse(event.data);
+                this._copyrightClaim.next(data);
             });
 
         } catch (error) {

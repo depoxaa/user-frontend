@@ -1,5 +1,6 @@
 export interface Artist {
   id: string;
+  userName: string;
   name: string;
   email: string;
   bio?: string;
@@ -15,7 +16,8 @@ export interface Artist {
 }
 
 export interface ArtistRegisterRequest {
-  name: string;
+  userName: string;
+  name?: string;
   email: string;
   password: string;
   confirmPassword: string;

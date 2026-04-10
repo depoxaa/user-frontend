@@ -166,7 +166,7 @@ export class AuthComponent {
       });
     } else {
       this.authService.registerArtist({
-        name: this.username,
+        userName: this.username,
         email: this.email,
         password: this.password,
         confirmPassword: this.confirmPassword,
@@ -212,12 +212,7 @@ export class AuthComponent {
             // Clear confirmation code and switch to login mode
             this.confirmationCode = '';
             // Pre-fill the username field for convenience
-            if (this.userType() === 'user') {
-              // For users, keep the username from registration
-            } else {
-              // For artists, set username to email since they login with email
-              this.username = this.pendingEmail();
-            }
+            // Keep the username from registration for both users and artists
             this.password = '';
             this.mode.set('login');
           }

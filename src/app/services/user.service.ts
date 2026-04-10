@@ -63,5 +63,32 @@ export class UserService {
   getLivePlayback(userId: string): Observable<LivePlayback> {
     return this.api.get<LivePlayback>(`/users/${userId}/playback`);
   }
+
+  getSubscription(): Observable<SubscriptionDto> {
+    return this.api.get<SubscriptionDto>('/users/subscription');
+  }
+
+  getPremiumPrice(): Observable<number> {
+    return this.api.get<number>('/users/settings/premium-price');
+  }
+
+  requestArtistStatus(): Observable<void> {
+    return this.api.post<void>('/users/request-artist', {});
+  }
+}
+
+export interface SubscriptionDto {
+  tier: string;
+  artistVerified: string;
+  paymentHistory: PaymentHistoryDto[];
+}
+
+export interface PaymentHistoryDto {
+  id: string;
+  amount: number;
+  currency: string;
+  provider: string;
+  status: string;
+  createdAt: Date;
 }
 

@@ -97,8 +97,76 @@
       <div class="resize-handle" (mousedown)="startLeftResize()"></div>
     </div>
 
-    <!-- Middle Section - Playlists -->
+    <!-- Middle Section - Playlists / For You -->
     <div class="middle-section" [style.width.px]="middleWidth()">
+      <!-- Category Tabs -->
+      @if (!selectedFriend()) {
+      <div class="category-tabs">
+        <button class="category-tab" [class.active]="!showRecommendations() && !showTops()" (click)="closeRecommendations(); closeTops()">My Playlists</button>
+        <button class="category-tab" [class.active]="showRecommendations()" (click)="openRecommendations()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+          For You
+        </button>
+        <button class="category-tab" [class.active]="showTops()" (click)="openTops()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 20V10M12 20V4M6 20v-6"/>
+          </svg>
+          Tops
+        </button>
+      </div>
+      }
+
+      @if (showTops() && !selectedFriend()) {
+      <!-- Tops Categories in Middle (like playlist items) -->
+      <div class="playlists-header">
+        <div class="header-left">
+          <h2>Tops</h2>
+        </div>
+      </div>
+      <div class="playlists-list">
+        <div class="playlist-item" [class.active]="selectedTopCategory() === 'listened'"
+          (click)="selectTopCategory('listened')">
+          <div class="playlist-icon" style="background: linear-gradient(135deg, #3b82f6, #6366f1);">
+            🎧
+          </div>
+          <div class="playlist-info">
+            <span class="playlist-name">Top Listened</span>
+            <span class="playlist-meta">Most played this month</span>
+          </div>
+        </div>
+        <div class="playlist-item" [class.active]="selectedTopCategory() === 'liked'"
+          (click)="selectTopCategory('liked')">
+          <div class="playlist-icon" style="background: linear-gradient(135deg, #ef4444, #ec4899);">
+            ❤️
+          </div>
+          <div class="playlist-info">
+            <span class="playlist-name">Top Liked</span>
+            <span class="playlist-meta">Most liked this month</span>
+          </div>
+        </div>
+      </div>
+      } @else if (showRecommendations() && !selectedFriend()) {
+      <!-- For You in Middle (like playlist items) -->
+      <div class="playlists-header">
+        <div class="header-left">
+          <h2>For You</h2>
+        </div>
+      </div>
+      <div class="playlists-list">
+        <div class="playlist-item active">
+          <div class="playlist-icon" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+            ⭐
+          </div>
+          <div class="playlist-info">
+            <span class="playlist-name">Recommendations</span>
+            <span class="playlist-meta">Based on your listening history</span>
+          </div>
+        </div>
+      </div>
+      } @else {
+      <!-- Playlists Header -->
       <div class="playlists-header">
         <div class="header-left">
           @if (selectedFriend()) {
@@ -107,8 +175,10 @@
               <path d="m15 18-6-6 6-6" />
             </svg>
           </button>
+          <h2>{{ selectedFriend()!.username + "'s Playlists" }}</h2>
+          } @else {
+          <h2>My Playlists</h2>
           }
-          <h2>{{ selectedFriend() ? selectedFriend()!.username + "'s Playlists" : 'My Playlists' }}</h2>
         </div>
         @if (!selectedFriend()) {
         <button class="add-playlist-btn" (click)="showCreatePlaylist.set(true)">
@@ -178,6 +248,7 @@
         </div>
         }
       </div>
+      }
 
       <!-- Resize Handle -->
       <div class="resize-handle" (mousedown)="startMiddleResize()"></div>
@@ -222,6 +293,146 @@
           </button>
         </div>
       </div>
+      } @else if (showRecommendations()) {
+      <!-- Recommendations View -->
+      <div class="playlist-view recommendations-view">
+        <div class="content-header">
+          <div class="search-row">
+            <div class="global-search">
+              <svg class="search-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+              </svg>
+              <input type="text" placeholder="Search all songs..." [ngModel]="globalSearchQuery()" (ngModelChange)="onSearchInput($event)" />
+            </div>
+          </div>
+          <div class="header-info">
+            <h1>For You</h1>
+            <p>Personalized recommendations based on your listening history</p>
+          </div>
+        </div>
+
+        @if (loadingRecommendations()) {
+          <div class="empty-songs"><p>Loading recommendations...</p></div>
+        } @else if (recommendationPlayCount() < 5) {
+          <div class="empty-songs recommendations-empty">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: rgba(255,255,255,0.3); margin-bottom: 12px;">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <p>Listen to more songs to unlock personalized recommendations</p>
+            <p class="hint">{{ recommendationPlayCount() }}/5 songs played</p>
+          </div>
+        } @else {
+          <div class="songs-list">
+            @for (song of recommendations(); track song.id; let i = $index) {
+            <div class="song-item" [class.playing]="currentSong()?.id === song.id"
+              [class.locked]="!song.isFree && !song.isPurchased" (click)="playSong(song)"
+              (contextmenu)="onSongContextMenu($event, song)">
+              <span class="song-index">{{ i + 1 }}</span>
+              <img [src]="getFileUrl(song.coverArt)" [alt]="song.title" class="song-cover" />
+              <div class="song-info">
+                <span class="song-title">{{ song.title }}</span>
+                <span class="song-artist">{{ song.artist.name || 'Unknown Artist' }}</span>
+              </div>
+              @if (!song.isFree && !song.isPurchased) {
+              <span class="song-price-badge">${{ song.price.toFixed(2) }}</span>
+              } @else if (!song.isFree && song.isPurchased) {
+              <span class="song-owned-badge">Owned</span>
+              }
+              <span class="song-stats">
+                <span class="stat-plays" title="Plays">▶ {{ song.totalPlays }}</span>
+                <span class="stat-likes" title="Likes">♥ {{ song.totalLikes }}</span>
+              </span>
+              <span class="song-duration">{{ song.duration }}</span>
+              <button class="add-to-playlist-btn" title="Add to playlist"
+                (click)="showSongToPlaylist.set(song); $event.stopPropagation()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+              <button class="like-btn" [class.liked]="likedSongIds().has(song.id)" (click)="toggleLike(song, $event)">
+                <svg width="16" height="16" viewBox="0 0 24 24"
+                  [attr.fill]="likedSongIds().has(song.id) ? 'currentColor' : 'none'" stroke="currentColor"
+                  stroke-width="2">
+                  <path
+                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </button>
+            </div>
+            }
+            @empty {
+            <div class="empty-songs">
+              <p>No recommendations available yet</p>
+            </div>
+            }
+          </div>
+        }
+      </div>
+      } @else if (showTops() && selectedTopCategory()) {
+      <!-- Tops Song List View -->
+      <div class="playlist-view">
+        <div class="content-header">
+          <div class="search-row">
+            <div class="global-search">
+              <svg class="search-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+              </svg>
+              <input type="text" placeholder="Search all songs..." [ngModel]="globalSearchQuery()" (ngModelChange)="onSearchInput($event)" />
+            </div>
+          </div>
+          <div class="header-info">
+            <h1>{{ selectedTopCategory() === 'listened' ? '🎧 Top Listened' : '❤️ Top Liked' }}</h1>
+            <p>{{ selectedTopCategory() === 'listened' ? 'Most played songs this month' : 'Most liked songs this month' }}</p>
+          </div>
+        </div>
+
+        @if (loadingTops()) {
+          <div class="empty-songs"><p>Loading...</p></div>
+        } @else {
+          <div class="songs-list">
+            @for (song of (selectedTopCategory() === 'listened' ? topListenedSongs() : topLikedSongs()); track song.id; let i = $index) {
+            <div class="song-item" [class.playing]="currentSong()?.id === song.id"
+              [class.locked]="!song.isFree && !song.isPurchased" (click)="playSong(song)"
+              (contextmenu)="onSongContextMenu($event, song)">
+              <span class="song-index">{{ i + 1 }}</span>
+              <img [src]="getFileUrl(song.coverArt)" [alt]="song.title" class="song-cover" />
+              <div class="song-info">
+                <span class="song-title">{{ song.title }}</span>
+                <span class="song-artist">{{ song.artist.name || 'Unknown Artist' }}</span>
+              </div>
+              @if (!song.isFree && !song.isPurchased) {
+              <span class="song-price-badge">${{ song.price.toFixed(2) }}</span>
+              } @else if (!song.isFree && song.isPurchased) {
+              <span class="song-owned-badge">Owned</span>
+              }
+              <span class="song-stats">
+                <span class="stat-plays" title="Plays">▶ {{ song.totalPlays }}</span>
+                <span class="stat-likes" title="Likes">♥ {{ song.totalLikes }}</span>
+              </span>
+              <span class="song-duration">{{ song.duration }}</span>
+              <button class="add-to-playlist-btn" title="Add to playlist"
+                (click)="showSongToPlaylist.set(song); $event.stopPropagation()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+              <button class="like-btn" [class.liked]="likedSongIds().has(song.id)" (click)="toggleLike(song, $event)">
+                <svg width="16" height="16" viewBox="0 0 24 24"
+                  [attr.fill]="likedSongIds().has(song.id) ? 'currentColor' : 'none'" stroke="currentColor"
+                  stroke-width="2">
+                  <path
+                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </button>
+            </div>
+            }
+            @empty {
+            <div class="empty-songs">
+              <p>No songs for this month yet</p>
+            </div>
+            }
+          </div>
+        }
+      </div>
       } @else if (selectedArtist()) {
       <!-- Artist Songs View -->
       <div class="playlist-view artist-songs-view">
@@ -261,6 +472,10 @@
             } @else if (!song.isFree && song.isPurchased) {
             <span class="song-owned-badge">Owned</span>
             }
+            <span class="song-stats">
+              <span class="stat-plays" title="Plays">▶ {{ song.totalPlays }}</span>
+              <span class="stat-likes" title="Likes">♥ {{ song.totalLikes }}</span>
+            </span>
             <span class="song-duration">{{ song.duration }}</span>
             <button class="add-to-playlist-btn" title="Add to playlist"
               (click)="showSongToPlaylist.set(song); $event.stopPropagation()">
@@ -337,6 +552,10 @@
             } @else if (!song.isFree && song.isPurchased) {
             <span class="song-owned-badge">Owned</span>
             }
+            <span class="song-stats">
+              <span class="stat-plays" title="Plays">▶ {{ song.totalPlays }}</span>
+              <span class="stat-likes" title="Likes">♥ {{ song.totalLikes }}</span>
+            </span>
             <span class="song-duration">{{ song.duration }}</span>
             <button class="add-to-playlist-btn" title="Add to playlist"
               (click)="showSongToPlaylist.set(song); $event.stopPropagation()">
@@ -517,6 +736,13 @@
           d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
       </svg>
       Toggle Like
+    </button>
+    <button (click)="contextMenuAction('report')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+        <line x1="4" y1="22" x2="4" y2="15"/>
+      </svg>
+      Report Song
     </button>
     <button class="danger" (click)="contextMenuAction('removeFromPlaylist')">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1200,6 +1426,74 @@
         } @else if (artistSearchResults().length === 0) {
         <p class="empty-text">Not following any artists. Search above to find artists to follow!</p>
         }
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Report Song Modal -->
+  @if (showReportModal()) {
+  <div class="modal-overlay" (click)="showReportModal.set(null)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Report Song</h3>
+        <button class="close-btn" (click)="showReportModal.set(null)">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="song-to-add">Reporting: {{ showReportModal()?.title }} by {{ showReportModal()?.artist?.name }}</p>
+        <div class="form-group">
+          <label>Reason</label>
+          <select [(ngModel)]="reportForm.reason">
+            <option value="Copyright">Copyright Infringement</option>
+            <option value="Explicit">Explicit Content</option>
+            <option value="Fake">Fake / Misleading</option>
+            <option value="Spam">Spam</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Description (min 20 characters)</label>
+          <textarea [(ngModel)]="reportForm.description" placeholder="Describe the issue in detail..." rows="4"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Evidence URL (optional)</label>
+          <input type="text" [(ngModel)]="reportForm.evidenceUrl" placeholder="https://..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="showReportModal.set(null)">Cancel</button>
+        <button class="btn-primary" [disabled]="isReporting() || reportForm.description.length < 20" (click)="submitReport()">
+          {{ isReporting() ? 'Submitting...' : 'Submit Report' }}
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Playlist Limit Error Modal -->
+  @if (playlistLimitError()) {
+  <div class="modal-overlay" (click)="playlistLimitError.set(null)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Playlist Limit Reached</h3>
+        <button class="close-btn" (click)="playlistLimitError.set(null)">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 24px;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(245,158,11,0.8)" stroke-width="1.5" style="margin-bottom: 12px;">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <p style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">
+          You've reached your limit of <strong>{{ playlistLimitError()!.limit }}</strong> playlists.
+        </p>
+        <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin-bottom: 20px;">
+          Upgrade to Premium to create up to 50 playlists!
+        </p>
+        <button class="btn-primary" style="padding: 12px 32px; font-size: 15px;"
+          (click)="playlistLimitError.set(null); router.navigate(['/upgrade'])">
+          Upgrade to Premium
+        </button>
       </div>
     </div>
   </div>

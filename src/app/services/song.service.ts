@@ -93,4 +93,16 @@ export class SongService {
   getPurchasedSongs(): Observable<Song[]> {
     return this.api.get<Song[]>('/songs/purchased');
   }
+
+  reportSong(songId: string, data: { reason: string; description: string; evidenceUrl?: string }): Observable<void> {
+    return this.api.post<void>(`/songs/${songId}/report`, data);
+  }
+
+  getTopListenedMonthly(take = 20): Observable<Song[]> {
+    return this.api.get<Song[]>(`/songs/top-listened-monthly?take=${take}`);
+  }
+
+  getTopLikedMonthly(take = 20): Observable<Song[]> {
+    return this.api.get<Song[]>(`/songs/top-liked-monthly?take=${take}`);
+  }
 }

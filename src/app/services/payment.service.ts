@@ -100,4 +100,41 @@ export class PaymentService {
   getPurchasedSongs(): Observable<Song[]> {
     return this.api.get<Song[]>('/songs/purchased');
   }
+
+  upgradeToPremium(paymentToken: string): Observable<{ upgraded: boolean }> {
+    return this.api.post<{ upgraded: boolean }>('/payments/google-pay', { paymentToken });
+  }
+
+  requestPremiumPayment(amount: number): Promise<string> {
+    const paymentDataRequest = {
+      apiVersion: 2,
+      apiVersionMinor: 0,
+      allowedPaymentMethods: [{
+        ...this.getBaseCardPaymentMethod(),
+        tokenizationSpecification: this.getTokenizationSpecification()
+      }],
+      transactionInfo: {
+        totalPriceStatus: 'FINAL',
+        totalPrice: amount.toFixed(2),
+        currencyCode: 'USD',
+        countryCode: 'US'
+      },
+      merchantInfo: {
+        merchantId: environment.googlePay.merchantId,
+        merchantName: environment.googlePay.merchantName
+      }
+    };
+
+    const client = this.getPaymentsClient();
+    return client.loadPaymentData(paymentDataRequest)
+      .then((paymentData: any) => {
+        return paymentData.paymentMethodData.tokenizationData.token;
+      });
+  }
+
+  upgradeWithGooglePay(amount: number): Observable<{ upgraded: boolean }> {
+    return from(this.requestPremiumPayment(amount)).pipe(
+      switchMap(token => this.upgradeToPremium(token))
+    );
+  }
 }

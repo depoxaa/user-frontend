@@ -66,4 +66,25 @@ export class ArtistService {
   getSubscribedArtists(): Observable<Artist[]> {
     return this.api.get<Artist[]>('/artists/subscribed');
   }
+
+  // Copyright Claims
+  getCopyrightClaims(): Observable<any[]> {
+    return this.api.get<any[]>('/artists/me/copyright-claims');
+  }
+
+  confirmCopyrightClaim(claimId: string): Observable<void> {
+    return this.api.post<void>(`/artists/me/copyright-claims/${claimId}/confirm`, {});
+  }
+
+  dismissCopyrightClaim(claimId: string): Observable<void> {
+    return this.api.post<void>(`/artists/me/copyright-claims/${claimId}/dismiss`, {});
+  }
+
+  getCopyrightClaimHistory(): Observable<any[]> {
+    return this.api.get<any[]>('/artists/me/copyright-claims/history');
+  }
+
+  getBannedSongs(): Observable<any[]> {
+    return this.api.get<any[]>('/artists/me/banned-songs');
+  }
 }

@@ -26,10 +26,51 @@
     <button [class.active]="activeTab() === 'songs'" (click)="activeTab.set('songs')">
       <span>🎵</span> My Songs
     </button>
+    <button [class.active]="activeTab() === 'alerts'" (click)="activeTab.set('alerts')">
+      <span>🚨</span> Alerts
+      @if (copyrightClaims().length > 0) {
+        <span class="tab-badge">{{ copyrightClaims().length }}</span>
+      }
+    </button>
     <button [class.active]="activeTab() === 'settings'" (click)="activeTab.set('settings')">
       <span>⚙️</span> Settings
     </button>
   </nav>
+
+  <!-- Copyright Alert Popup -->
+  @if (copyrightAlert()) {
+  <div class="copyright-alert-overlay" (click)="closeCopyrightAlert()">
+    <div class="copyright-alert-modal" (click)="$event.stopPropagation()">
+      <div class="alert-header">
+        <span class="alert-icon">⚠️</span>
+        <h3>Copyright Match Detected</h3>
+      </div>
+      <div class="alert-body">
+        <p>Someone uploaded a song that matches your original work:</p>
+        <div class="alert-details">
+          <div class="detail-row">
+            <span class="label">Your song:</span>
+            <span class="value">{{ copyrightAlert().originalSong.title }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Matching song:</span>
+            <span class="value">{{ copyrightAlert().infringingSong.title }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Uploaded by:</span>
+            <span class="value">{{ copyrightAlert().infringingArtist.name }}</span>
+          </div>
+        </div>
+        <p class="alert-question">Do you want to confirm this as a copyright violation? The infringing song will be permanently removed.</p>
+      </div>
+      <div class="alert-actions">
+        <button class="btn-confirm" (click)="confirmClaim(copyrightAlert().claimId)">Confirm &amp; Remove</button>
+        <button class="btn-dismiss" (click)="dismissClaim(copyrightAlert().claimId)">Dismiss</button>
+        <button class="btn-later" (click)="closeCopyrightAlert()">Review Later</button>
+      </div>
+    </div>
+  </div>
+  }
 
   <!-- Main Content -->
   <main class="admin-content">
@@ -281,9 +322,123 @@
               <td colspan="8" class="empty">No songs uploaded yet</td>
             </tr>
             }
+            <!-- Banned songs -->
+            @for (banned of bannedSongs(); track banned.id) {
+            <tr class="banned-row">
+              <td>
+                <div class="song-cell">
+                  <div class="banned-cover">🚫</div>
+                  <div>
+                    <span class="title">{{ banned.songTitle }}</span>
+                    <span class="duration banned-label">Copyright violation</span>
+                  </div>
+                </div>
+              </td>
+              <td>—</td>
+              <td><span class="badge banned">BANNED</span></td>
+              <td>{{ formatDate(banned.bannedAt) }}</td>
+              <td class="right">—</td>
+              <td class="right">—</td>
+              <td class="right">—</td>
+              <td class="right">
+                <span class="banned-reason" title="Matched: {{ banned.originalSongTitle }} by {{ banned.originalArtist.name }}">
+                  Matched "{{ banned.originalSongTitle }}"
+                </span>
+              </td>
+            </tr>
+            }
           </tbody>
         </table>
       </div>
+    </div>
+    }
+
+    <!-- Alerts Tab -->
+    @if (activeTab() === 'alerts') {
+    <div class="alerts-content">
+      <h2>Copyright Alerts</h2>
+      <p class="alerts-description">Songs that match your original uploads will appear here. You can confirm to remove the infringing song or dismiss if it's not a violation.</p>
+
+      <!-- Pending Claims -->
+      @if (copyrightClaims().length > 0) {
+      <h3 class="section-title">Pending Review</h3>
+      <div class="alerts-list">
+        @for (claim of copyrightClaims(); track claim.id) {
+        <div class="alert-card">
+          <div class="alert-card-header">
+            <span class="alert-badge">⚠️ Copyright Match</span>
+            <span class="alert-date">{{ formatDate(claim.createdAt) }}</span>
+          </div>
+          <div class="alert-card-body">
+            <div class="song-comparison">
+              <div class="song-box original">
+                <span class="song-label">Your Original Song</span>
+                <span class="song-title">{{ claim.originalSong.title }}</span>
+              </div>
+              <div class="match-arrow">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </div>
+              <div class="song-box infringing">
+                <span class="song-label">Infringing Song</span>
+                <span class="song-title">{{ claim.infringingSong.title }}</span>
+                <span class="song-artist">by {{ claim.infringingArtist.name }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="alert-card-actions">
+            <button class="btn-ban" (click)="confirmClaim(claim.id)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/>
+              </svg>
+              Confirm Ban
+            </button>
+            <button class="btn-dismiss-claim" (click)="dismissClaim(claim.id)">Dismiss</button>
+          </div>
+        </div>
+        }
+      </div>
+      }
+
+      @if (copyrightClaims().length === 0 && copyrightHistory().length === 0) {
+      <div class="alerts-empty">
+        <span class="empty-icon">✅</span>
+        <p>No copyright claims</p>
+        <p class="hint">When someone uploads a song that matches one of yours, it will appear here for your review.</p>
+      </div>
+      }
+
+      <!-- History -->
+      @if (copyrightHistory().length > 0) {
+      <h3 class="section-title">History</h3>
+      <div class="history-list">
+        @for (item of copyrightHistory(); track item.id) {
+        <div class="history-item" [class.banned]="item.status === 'Confirmed'" [class.dismissed]="item.status === 'Dismissed'">
+          <div class="history-icon">
+            @if (item.status === 'Confirmed') {
+              <span class="status-icon banned">🚫</span>
+            } @else {
+              <span class="status-icon dismissed">✅</span>
+            }
+          </div>
+          <div class="history-info">
+            <span class="history-title">
+              "{{ item.infringingSongTitle }}" by {{ item.infringingArtist.name }}
+            </span>
+            <span class="history-meta">
+              matched your "{{ item.originalSongTitle }}"
+              &mdash; {{ item.status === 'Confirmed' ? 'Banned' : 'Dismissed' }}
+              on {{ formatDate(item.resolvedAt) }}
+            </span>
+          </div>
+          <span class="history-badge" [class.badge-banned]="item.status === 'Confirmed'" [class.badge-dismissed]="item.status === 'Dismissed'">
+            {{ item.status === 'Confirmed' ? 'BANNED' : 'DISMISSED' }}
+          </span>
+        </div>
+        }
+      </div>
+      }
     </div>
     }
 

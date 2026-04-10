@@ -10,3 +10,5 @@ export * from './album.service';
 export * from './audio-player.service';
 export * from './sse.service';
 export * from './payment.service';
+export * from './recommendation.service';
+export * from './stream.service';

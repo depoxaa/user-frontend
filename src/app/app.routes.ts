@@ -67,6 +67,11 @@ export const routes: Routes = [
     canActivate: [guestGuard]
   },
   {
+    path: 'upgrade',
+    loadComponent: () => import('./components/upgrade/upgrade.component').then(m => m.UpgradeComponent),
+    canActivate: [authGuard]
+  },
+  {
     path: 'artist-dashboard',
     loadComponent: () => import('./components/artist-admin/artist-admin.component').then(m => m.ArtistAdminComponent),
     canActivate: [artistGuard]

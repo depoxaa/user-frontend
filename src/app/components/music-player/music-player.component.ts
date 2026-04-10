@@ -12,7 +12,9 @@ import {
   ArtistService,
   UserService,
   SseService,
-  PaymentService
+  PaymentService,
+  RecommendationService,
+  StreamService
 } from '../../services';
 import { Song, Playlist, PlaylistDetail, Friend, Artist, FriendRequest, User } from '../../models';
 import { environment } from '../../../environments/environment';
@@ -102,6 +104,27 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
   showPurchaseModal = signal<Song | null>(null);
   isPurchasing = signal<boolean>(false);
 
+  // Recommendations
+  showRecommendations = signal<boolean>(false);
+  recommendations = signal<Song[]>([]);
+  recommendationPlayCount = signal<number>(0);
+  loadingRecommendations = signal<boolean>(false);
+
+  // Tops
+  showTops = signal<boolean>(false);
+  selectedTopCategory = signal<'listened' | 'liked' | null>(null);
+  topListenedSongs = signal<Song[]>([]);
+  topLikedSongs = signal<Song[]>([]);
+  loadingTops = signal<boolean>(false);
+
+  // Report Song
+  showReportModal = signal<Song | null>(null);
+  reportForm = { reason: 'Copyright', description: '', evidenceUrl: '' };
+  isReporting = signal<boolean>(false);
+
+  // Playlist limit error
+  playlistLimitError = signal<{ limit: number; upgradeUrl: string } | null>(null);
+
   // Context Menu
   contextMenu = signal<{
     visible: boolean;
@@ -190,9 +213,11 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
     private friendService: FriendService,
     private artistService: ArtistService,
     private userService: UserService,
-    private router: Router,
+    public router: Router,
     private sseService: SseService,
-    private paymentService: PaymentService
+    private paymentService: PaymentService,
+    private recommendationService: RecommendationService,
+    private streamService: StreamService
   ) {
     // Immediate broadcast when play/pause state changes
     effect(() => {
@@ -277,6 +302,25 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
     this.sseSubscriptions.push(
       this.sseService.liveUsers$.subscribe(() => {
         this.loadLiveUsers();
+      })
+    );
+
+    // Subscribe to viewer count updates
+    this.sseSubscriptions.push(
+      this.sseService.viewerCount$.subscribe((data) => {
+        // Update listener count for the relevant live user
+        this.liveUsers.update(users =>
+          users.map(u => u.id === data.hostId ? { ...u, listeners: data.viewerCount } : u)
+        );
+        // Update selected live user if viewing their stream
+        const selected = this.selectedLiveUser();
+        if (selected && selected.id === data.hostId) {
+          this.selectedLiveUser.set({ ...selected, listeners: data.viewerCount });
+        }
+        // Update own listener count if broadcasting
+        if (this.isUserLive() && this.user()?.id === data.hostId) {
+          this.userLiveListeners.set(data.viewerCount);
+        }
       })
     );
   }
@@ -420,6 +464,9 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
     this.selectedPlaylist.set(playlistId);
     this.globalSearchQuery.set(''); // Clear search when selecting playlist
     this.searchResults.set([]);
+    this.showRecommendations.set(false);
+    this.showTops.set(false);
+    this.selectedTopCategory.set(null);
 
     this.playlistService.getById(playlistId).subscribe({
       next: (detail) => {
@@ -541,6 +588,20 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
     this.isGhostMode.set(true);
     this.audioPlayer.setGhostMode(true);
 
+    // Register as a stream viewer
+    this.streamService.joinStream(liveUser.id).subscribe({
+      next: (res) => {
+        this.selectedLiveUser.set({ ...liveUser, listeners: res.viewerCount });
+      },
+      error: (err) => {
+        if (err?.error?.error === 'STREAM_FULL') {
+          alert(`This stream is full (max ${err.error.limit} viewers).`);
+          this.exitGhostMode();
+          return;
+        }
+      }
+    });
+
     // Start syncing to the streamer's playback
     this.startSyncing(liveUser.id);
   }
@@ -577,6 +638,10 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
 
   exitGhostMode(): void {
     this.clearSyncInterval();
+    const liveUser = this.selectedLiveUser();
+    if (liveUser) {
+      this.streamService.leaveStream(liveUser.id).subscribe();
+    }
     this.isGhostMode.set(false);
     this.selectedLiveUser.set(null);
     this.audioPlayer.setGhostMode(false);
@@ -782,6 +847,17 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
         } else {
           this.playlists.update(p => [...p, playlist]);
           this.resetNewPlaylistForm();
+        }
+      },
+      error: (err) => {
+        if (err?.status === 403 && err?.error?.error === 'playlist_limit_reached') {
+          this.playlistLimitError.set({
+            limit: err.error.limit,
+            upgradeUrl: err.error.upgrade_url || '/upgrade'
+          });
+          this.showCreatePlaylist.set(false);
+        } else {
+          alert(err?.error?.error || 'Failed to create playlist');
         }
       }
     });
@@ -1264,6 +1340,9 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
       case 'like':
         this.toggleLike(song);
         break;
+      case 'report':
+        this.openReportModal(song);
+        break;
       case 'removeFromPlaylist':
         const playlistId = this.selectedPlaylist();
         if (playlistId) {
@@ -1300,6 +1379,108 @@ export class MusicPlayerComponent implements OnInit, OnDestroy {
         }
         break;
     }
+  }
+
+  // === RECOMMENDATIONS ===
+
+  openRecommendations(): void {
+    this.showRecommendations.set(true);
+    this.showTops.set(false);
+    this.selectedTopCategory.set(null);
+    this.selectedArtist.set(null);
+    this.isGhostMode.set(false);
+    this.loadRecommendations();
+  }
+
+  loadRecommendations(): void {
+    this.loadingRecommendations.set(true);
+    this.recommendationService.getPlayCount().subscribe({
+      next: (count) => this.recommendationPlayCount.set(count)
+    });
+    this.recommendationService.getRecommendations().subscribe({
+      next: (songs) => {
+        this.recommendations.set(songs);
+        this.loadingRecommendations.set(false);
+      },
+      error: () => {
+        this.loadingRecommendations.set(false);
+      }
+    });
+  }
+
+  closeRecommendations(): void {
+    this.showRecommendations.set(false);
+  }
+
+  // === TOPS ===
+
+  openTops(): void {
+    this.showTops.set(true);
+    this.showRecommendations.set(false);
+    this.selectedTopCategory.set(null);
+  }
+
+  closeTops(): void {
+    this.showTops.set(false);
+    this.selectedTopCategory.set(null);
+  }
+
+  selectTopCategory(category: 'listened' | 'liked'): void {
+    this.selectedTopCategory.set(category);
+    this.loadingTops.set(true);
+
+    if (category === 'listened') {
+      this.songService.getTopListenedMonthly().subscribe({
+        next: (songs) => { this.topListenedSongs.set(songs); this.loadingTops.set(false); },
+        error: () => this.loadingTops.set(false)
+      });
+    } else {
+      this.songService.getTopLikedMonthly().subscribe({
+        next: (songs) => { this.topLikedSongs.set(songs); this.loadingTops.set(false); },
+        error: () => this.loadingTops.set(false)
+      });
+    }
+  }
+
+  backToTopCategories(): void {
+    this.selectedTopCategory.set(null);
+  }
+
+  // === REPORT SONG ===
+
+  openReportModal(song: Song): void {
+    this.showReportModal.set(song);
+    this.reportForm = { reason: 'Copyright', description: '', evidenceUrl: '' };
+  }
+
+  submitReport(): void {
+    const song = this.showReportModal();
+    if (!song || this.reportForm.description.length < 20) {
+      alert('Description must be at least 20 characters.');
+      return;
+    }
+
+    this.isReporting.set(true);
+    this.songService.reportSong(song.id, {
+      reason: this.reportForm.reason,
+      description: this.reportForm.description,
+      evidenceUrl: this.reportForm.evidenceUrl || undefined
+    }).subscribe({
+      next: () => {
+        this.isReporting.set(false);
+        this.showReportModal.set(null);
+        alert('Report submitted successfully.');
+      },
+      error: (err) => {
+        this.isReporting.set(false);
+        if (err?.status === 409) {
+          alert('You already have a pending report for this song.');
+        } else {
+          alert(err?.error?.error || 'Failed to submit report.');
+        }
+        this.showReportModal.set(null);
+      }
+    });
   }
 
   logout(): void {
