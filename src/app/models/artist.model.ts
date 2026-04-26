@@ -38,7 +38,7 @@ export interface UpdateArtistRequest {
 export interface ArtistStats {
   totalSongs: number;
   totalPlays: number;
-  totalListeningHours: number;
+  totalListeningSeconds: number;
   totalLikes: number;
   monthlyListeners: number;
   revenue: number;
